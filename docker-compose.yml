@@ -1,0 +1,72 @@
+version: '3'
+
+services:
+    php8-fpm:
+        container_name: php8_container
+        build: build/php-fpm
+        expose:
+            - '9000'
+        volumes:
+            - .:/var/www/html/user_api_backend
+            - ./build/php-fpm/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+            - ./build/php-fpm/conf.d/error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini
+        networks:
+            - user_api
+        depends_on:
+            - db
+            - redis
+        restart: always
+    nginx:
+        build: build/nginx
+        container_name: nginx_container
+        restart: always
+        ports:
+            - "8088:80"
+        volumes:
+            - .:/var/www/html/user_api_backend
+            - ./build/nginx/sites-enabled:/etc/nginx/sites-enabled
+        networks:
+            - user_api
+    db:
+        container_name: mysql_container
+        image: mysql:8.0.27
+        platform: linux/x86_64
+        environment:
+            - MYSQL_DATABASE=user_api
+            - MYSQL_ROOT_PASSWORD=user_api123
+            - MYSQL_PASSWORD=user_api123
+        networks:
+            - user_api
+        ports:
+            - "3306:3306"
+        volumes:
+            - ./mysql:/var/lib/mysql
+        command: '--default-authentication-plugin=mysql_native_password'
+        restart: always
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        platform: linux/x86_64
+        container_name: phpmyadmin_container
+        depends_on:
+            - db
+        restart: always
+        ports:
+            - "8087:80"
+        environment:
+            - PMA_ARBITRARY=1
+        networks:
+            - user_api
+    redis:
+        image: redis:7.0.5-alpine
+        container_name: redis_server
+        restart: always
+        command: redis-server --appendonly yes --replica-read-only no
+        ports:
+            - "6379:6379"
+        volumes:
+            - ./redis/data:/data
+        networks:
+            - user_api
+networks:
+   user_api:
+    driver: bridge
